@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.bignerdranch.android.wetherapi"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.bignerdranch.android.wetherapi"
