@@ -1,5 +1,6 @@
 package com.bignerdranch.android.wetherapi.adapters
 
+import android.service.autofill.OnClickAction
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,10 +11,18 @@ import com.bignerdranch.android.wetherapi.R
 import com.bignerdranch.android.wetherapi.databinding.ListItemBinding
 import com.squareup.picasso.Picasso
 
-class WeatherAdapter : ListAdapter<WeatherModel, WeatherAdapter.Holder>(Comparator()) {
-    class Holder(view: View) : RecyclerView.ViewHolder(view){
+class WeatherAdapter(val listener: Listener?) : ListAdapter<WeatherModel, WeatherAdapter.Holder>(Comparator()) {
+    class Holder(view: View, val listener: Listener?) : RecyclerView.ViewHolder(view){
         val binding = ListItemBinding.bind(view)
+        var itemTemp: WeatherModel? = null
+        init{
+            itemView.setOnClickListener{
+                itemTemp?.let { it1 -> listener?.OnClick(it1) }
+            }
+        }
+
         fun bind(item: WeatherModel) = with(binding){
+            itemTemp = item
             tvDate.text = item.time
             tvCondition.text = item.condition
             tvTemp.text = item.currentTemp.ifEmpty { "${item.maxTemp}°C/${item.minTemp}°C"}
@@ -34,10 +43,14 @@ class WeatherAdapter : ListAdapter<WeatherModel, WeatherAdapter.Holder>(Comparat
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.list_item, parent, false)
-        return Holder(view)
+        return Holder(view, listener)
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         holder.bind(getItem(position ))
+    }
+
+    interface Listener{
+        fun OnClick(item: WeatherModel)
     }
 }
