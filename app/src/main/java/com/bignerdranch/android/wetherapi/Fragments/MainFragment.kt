@@ -1,9 +1,14 @@
 package com.bignerdranch.android.wetherapi.Fragments
 
 import android.Manifest
+import android.app.Dialog
 import android.app.DownloadManager.Request
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
@@ -18,6 +23,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.setFragmentResultListener
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import com.bignerdranch.android.wetherapi.DialogManager
 import com.bignerdranch.android.wetherapi.MainViewModel
 import com.bignerdranch.android.wetherapi.R
 import com.bignerdranch.android.wetherapi.adapters.VpAdapter
@@ -62,7 +68,11 @@ class MainFragment: Fragment(){
         checkPermission()
         init()
         updateCurrentCard()
-        getLocation()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        checkLocation()
     }
 
     private fun init() = with(binding){
@@ -74,8 +84,26 @@ class MainFragment: Fragment(){
         }.attach()
         ibSync.setOnClickListener{
             tabLayout.selectTab(tabLayout.getTabAt(0))
-            getLocation()
+            checkLocation()
         }
+    }
+
+    private fun checkLocation(){
+        if(isLocationEnabled()){
+            getLocation()
+        }else{
+            DialogManager.locationSettiongsDialog(requireContext(), object : DialogManager.Listener{
+                override fun onClick() {
+                    startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                }
+
+            })
+        }
+    }
+
+    private fun isLocationEnabled(): Boolean{
+        val lm = activity?.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
     }
 
     private fun getLocation(){
