@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("kotlin-kapt")
 }
 
 android {
@@ -48,6 +49,10 @@ dependencies {
     implementation("com.squareup.picasso:picasso:2.71828")
     implementation("androidx.fragment:fragment-ktx:1.7.0")
     implementation("com.google.android.gms:play-services-location:21.2.0")
+    implementation("androidx.room:room-runtime:2.6.0")
+    implementation("androidx.room:room-common:2.6.0")
+    implementation("androidx.room:room-ktx:2.6.0")
+    kapt("androidx.room:room-compiler:2.6.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
