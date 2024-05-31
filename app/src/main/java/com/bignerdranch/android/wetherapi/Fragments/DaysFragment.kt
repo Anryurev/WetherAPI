@@ -8,7 +8,6 @@ import android.view.ViewGroup
 import androidx.fragment.app.activityViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bignerdranch.android.wetherapi.MainViewModel
-import com.bignerdranch.android.wetherapi.R
 import com.bignerdranch.android.wetherapi.adapters.WeatherAdapter
 import com.bignerdranch.android.wetherapi.adapters.WeatherModel
 import com.bignerdranch.android.wetherapi.databinding.FragmentHoursBinding

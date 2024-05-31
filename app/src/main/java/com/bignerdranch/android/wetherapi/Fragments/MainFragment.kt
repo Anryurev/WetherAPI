@@ -1,8 +1,6 @@
 package com.bignerdranch.android.wetherapi.Fragments
 
 import android.Manifest
-import android.app.Dialog
-import android.app.DownloadManager.Request
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -20,25 +18,22 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.setFragmentResultListener
+import androidx.lifecycle.asLiveData
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import com.bignerdranch.android.wetherapi.DayItem
 import com.bignerdranch.android.wetherapi.DialogManager
 import com.bignerdranch.android.wetherapi.MainViewModel
-import com.bignerdranch.android.wetherapi.R
 import com.bignerdranch.android.wetherapi.adapters.VpAdapter
 import com.bignerdranch.android.wetherapi.adapters.WeatherModel
-import com.bignerdranch.android.wetherapi.databinding.ActivityMainBinding
+import com.bignerdranch.android.wetherapi.database.WeatherDatabase
 import com.bignerdranch.android.wetherapi.databinding.FragmentMainBinding
 import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationToken
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.material.tabs.TabLayoutMediator
 import com.squareup.picasso.Picasso
-import okhttp3.OkHttpClient
 import org.json.JSONObject
 
 const val API_KEY = "c1e67cd72fc54b7db06123328241205"
@@ -104,7 +99,6 @@ class MainFragment: Fragment(){
                 override fun onClick(name: String?) {
                     startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                 }
-
             })
         }
     }
@@ -134,14 +128,31 @@ class MainFragment: Fragment(){
     }
 
     private fun updateCurrentCard() = with(binding){
+        val db = WeatherDatabase.getDb(requireContext())
         model.liveDataCurrent.observe(viewLifecycleOwner){
             val maxMinTemp = "${it.maxTemp}°C/${it.minTemp}°C"
-            tvData.text = it.time
-            tvCity.text = it.city
-            tvCurrentTemp.text = it.currentTemp.ifEmpty { "${it.maxTemp}°C/${it.minTemp}" } + "°C"
-            tvCondition.text = it.condition
-            tvMaxMin.text = if(it.currentTemp.isEmpty()) "" else maxMinTemp
-            Picasso.get().load("https:" + it.imageUrl).into(imWeather)
+            val item = DayItem(null,
+                it.city,
+                it.time,
+                it.condition,
+                it.imageUrl,
+                it.currentTemp,
+                it.maxTemp,
+                it.minTemp,
+                it.hours )
+            Thread{
+                db.getDao().insertItem(item)
+            }.start()
+            db.getDao().getAllItem().asLiveData().observe(viewLifecycleOwner){list ->
+                list.forEach{item ->
+                    tvData.text = item.time
+                    tvCity.text = item.city
+                    tvCurrentTemp.text = item.currentTemp.ifEmpty { "${it.maxTemp}°C/${it.minTemp}" } + "°C"
+                    tvCondition.text = item.condition
+                    tvMaxMin.text = if(item.currentTemp.isEmpty()) "" else maxMinTemp
+                    Picasso.get().load("https:" + item.imageUrl).into(imWeather)
+                }
+            }
         }
     }
 
