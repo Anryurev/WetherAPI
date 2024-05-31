@@ -36,7 +36,10 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.material.tabs.TabLayoutMediator
 import com.squareup.picasso.Picasso
+import org.json.JSONArray
 import org.json.JSONObject
+import java.util.TreeMap
+import java.util.UUID
 
 const val API_KEY = "c1e67cd72fc54b7db06123328241205"
 class MainFragment: Fragment(){
@@ -130,37 +133,16 @@ class MainFragment: Fragment(){
     }
 
     private fun updateCurrentCard() = with(binding){
-        val db = WeatherDatabase.getDb(requireContext())
-        if(isOnline(requireContext())) {
-            model.liveDataCurrent.observe(viewLifecycleOwner) {
-                val item = DayItem(
-                    null,
-                    it.city,
-                    it.time,
-                    it.condition,
-                    it.imageUrl,
-                    it.currentTemp,
-                    it.maxTemp,
-                    it.minTemp,
-                    it.hours
-                )
-                Thread {
-                    db.getDao().deleteItem()
-                    db.getDao().insertItem(item)
-                }.start()
-            }
+        model.liveDataCurrent.observe(viewLifecycleOwner) {
+            val maxMinTemp = "${it.maxTemp}°C/${it.minTemp}°C"
+            tvData.text = it.time
+            tvCity.text = it.city
+            tvCurrentTemp.text = it.currentTemp.ifEmpty { "${it.maxTemp}°C/${it.minTemp}" } + "°C"
+            tvCondition.text = it.condition
+            tvMaxMin.text = if(it.currentTemp.isEmpty()) "" else maxMinTemp
+            Picasso.get().load("https:" + it.imageUrl).into(imWeather)
         }
-        db.getDao().getAllItem().asLiveData().observe(viewLifecycleOwner){list ->
-            list.forEach{item ->
-                val maxMinTemp = "${item.maxTemp}°C/${item.minTemp}°C"
-                tvData.text = item.time
-                tvCity.text = item.city
-                tvCurrentTemp.text = item.currentTemp.ifEmpty { "${item.maxTemp}°C/${item.minTemp}" } + "°C"
-                tvCondition.text = item.condition
-                tvMaxMin.text = if(item.currentTemp.isEmpty()) "" else maxMinTemp
-                Picasso.get().load("https:" + item.imageUrl).into(imWeather)
-            }
-        }
+
     }
 
     private fun permissionListener(){
@@ -192,7 +174,7 @@ class MainFragment: Fragment(){
                 result -> parseWeatherData(result)
             },
             {
-                error -> Log.d("MyLog", "Error: $error")
+                error -> getDataFromDB()
             }
         )
         queue.add(request)
@@ -205,14 +187,18 @@ class MainFragment: Fragment(){
     }
 
     private fun parseDays(mainObject: JSONObject): List<WeatherModel>{
-
+        val db = WeatherDatabase.getDb(requireContext())
         val list = ArrayList<WeatherModel>()
+        Thread{
+            db.getDao().deleteItem()
+        }.start()
         val daysArray = mainObject.getJSONObject("forecast")
             .getJSONArray("forecastday")
         val name = mainObject.getJSONObject("location").getString("name")
-        for(i in 0 until daysArray.length()){
+        for (i in 0 until daysArray.length()) {
             val day = daysArray[i] as JSONObject
             val item = WeatherModel(
+                null,
                 name,
                 day.getString("date"),
                 day.getJSONObject("day").getJSONObject("condition")
@@ -223,15 +209,45 @@ class MainFragment: Fragment(){
                 day.getJSONObject("day").getJSONObject("condition")
                     .getString("icon"),
                 day.getJSONArray("hour").toString()
+
             )
             list.add(item)
+            Thread {
+                db.getDao().insertItem(item)
+            }.start()
         }
         model.liveDataList.value = list
+
+        return list
+    }
+
+    private fun getDataFromDB(): List<WeatherModel>{
+        val db = WeatherDatabase.getDb(requireContext())
+        val list = ArrayList<WeatherModel>()
+        db.getDao().getAllItem().asLiveData().observe(viewLifecycleOwner){listW ->
+            listW.forEach{item ->
+                val itemD = WeatherModel(
+                    null,
+                    item.city,
+                    item.time,
+                    item.condition,
+                    item.currentTemp,
+                    item.maxTemp,
+                    item.minTemp,
+                    item.imageUrl,
+                    item.hours
+                )
+                list.add(itemD)
+            }
+        }
+        model.liveDataList.value = list
+        parseCurrentDataDB(list[0])
         return list
     }
 
     private fun parseCurrentData(mainObject: JSONObject, weatherItem: WeatherModel){
         val item = WeatherModel(
+            null,
             mainObject.getJSONObject("location").getString("name"),
             mainObject.getJSONObject("current").getString("last_updated"),
             mainObject.getJSONObject("current").getJSONObject("condition").getString("text"),
@@ -242,7 +258,26 @@ class MainFragment: Fragment(){
             weatherItem.hours
         )
         model.liveDataCurrent.value = item
+    }
 
+    private fun parseCurrentDataDB(weatherItem: WeatherModel){
+        val db = WeatherDatabase.getDb(requireContext())
+        db.getDao().getItem(weatherItem.id as UUID).observe(viewLifecycleOwner) { it ->
+            val item = it?.let { it1 ->
+                WeatherModel(
+                    null,
+                    it1.city,
+                    it.time,
+                    it.condition,
+                    it.currentTemp,
+                    weatherItem.maxTemp,
+                    weatherItem.minTemp,
+                    it.imageUrl,
+                    weatherItem.hours
+                )
+            }
+            model.liveDataCurrent.value = item
+        }
     }
 
     fun isOnline(context: Context): Boolean {
