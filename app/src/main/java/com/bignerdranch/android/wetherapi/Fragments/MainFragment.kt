@@ -10,7 +10,6 @@ import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,12 +17,13 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
+import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.Observer
 import androidx.lifecycle.asLiveData
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
-import com.bignerdranch.android.wetherapi.DayItem
 import com.bignerdranch.android.wetherapi.DialogManager
 import com.bignerdranch.android.wetherapi.MainViewModel
 import com.bignerdranch.android.wetherapi.adapters.VpAdapter
@@ -36,9 +36,8 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.material.tabs.TabLayoutMediator
 import com.squareup.picasso.Picasso
-import org.json.JSONArray
+import kotlinx.coroutines.flow.Flow
 import org.json.JSONObject
-import java.util.TreeMap
 import java.util.UUID
 
 const val API_KEY = "c1e67cd72fc54b7db06123328241205"
@@ -209,10 +208,10 @@ class MainFragment: Fragment(){
                 day.getJSONObject("day").getJSONObject("condition")
                     .getString("icon"),
                 day.getJSONArray("hour").toString()
-
             )
             list.add(item)
             Thread {
+                db.getDao().getAllItem()
                 db.getDao().insertItem(item)
             }.start()
         }
@@ -223,11 +222,13 @@ class MainFragment: Fragment(){
 
     private fun getDataFromDB(): List<WeatherModel>{
         val db = WeatherDatabase.getDb(requireContext())
+        var i = 0
         val list = ArrayList<WeatherModel>()
-        db.getDao().getAllItem().asLiveData().observe(viewLifecycleOwner){listW ->
-            listW.forEach{item ->
+        val weatherList: Flow<List<WeatherModel>> = db.getDao().getAllItem()
+        db.getDao().getAllItem().asLiveData().observe(viewLifecycleOwner) {
+            it.forEach{item ->
                 val itemD = WeatherModel(
-                    null,
+                    item.id,
                     item.city,
                     item.time,
                     item.condition,
@@ -238,10 +239,15 @@ class MainFragment: Fragment(){
                     item.hours
                 )
                 list.add(itemD)
+                model.liveDataList.value = model.liveDataList.value?.toMutableList()?.apply { add(itemD) }?: emptyList()
+                if(i == 0){
+                    parseCurrentDataDB(itemD)
+                }
+                i++
             }
         }
-        model.liveDataList.value = list
-        parseCurrentDataDB(list[0])
+        //model.liveDataList.value = list
+        //parseCurrentDataDB(list[0])
         return list
     }
 
@@ -262,17 +268,17 @@ class MainFragment: Fragment(){
 
     private fun parseCurrentDataDB(weatherItem: WeatherModel){
         val db = WeatherDatabase.getDb(requireContext())
-        db.getDao().getItem(weatherItem.id as UUID).observe(viewLifecycleOwner) { it ->
+        db.getDao().getItem(weatherItem.id).observe(viewLifecycleOwner) { it ->
             val item = it?.let { it1 ->
                 WeatherModel(
-                    null,
+                    it1.id,
                     it1.city,
-                    it.time,
-                    it.condition,
-                    it.currentTemp,
+                    it1.time,
+                    it1.condition,
+                    it1.currentTemp,
                     weatherItem.maxTemp,
                     weatherItem.minTemp,
-                    it.imageUrl,
+                    it1.imageUrl,
                     weatherItem.hours
                 )
             }

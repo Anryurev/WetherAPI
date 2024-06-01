@@ -16,7 +16,7 @@ interface WeatherDao {
     @Query("SELECT * FROM wItems")
     fun getAllItem(): Flow<List<WeatherModel>>
     @Query("SELECT * FROM wItems WHERE id=(:id)")
-    fun getItem(id: UUID): LiveData<WeatherModel?>
+    fun getItem(id: Int?): LiveData<WeatherModel?>
     @Update
     fun updateItem(dayItem: WeatherModel)
     @Query("DELETE FROM wItems")
